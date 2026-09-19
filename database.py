@@ -3,19 +3,20 @@ TimeTrack's persistence layer -- SQLite, shared by the website and the MCP
 server, exactly like RecipeBox's was. One real, professional use case this
 time: logging billable hours against projects, and summarizing them.
 """
+import os
 import sqlite3
 from pathlib import Path
 
-DB_PATH = Path(__file__).parent / "timetrack.db"
+DB_PATH = Path(os.environ.get("TIMETRACK_DB_PATH", Path(__file__).parent / "timetrack.db"))
 
 
-def get_connection():
+def get_connection(): # returns a connection to the SQLite database, with row_factory set to sqlite3.Row for dict-like access.
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
 
-def init_db():
+def init_db(): # prepares the database for use.
     conn = get_connection()
     conn.execute("""
         CREATE TABLE IF NOT EXISTS time_entries (
@@ -28,7 +29,7 @@ def init_db():
         )
     """)
     count = conn.execute("SELECT COUNT(*) FROM time_entries").fetchone()[0]
-    if count == 0:
+    if count == 0: #If the table is empty, the code prepares five sample entries. This initial example data is called seed data.
         seed = [
             ("Asha Patel", "Website Redesign", "2026-09-08", 6.5, "Homepage layout"),
             ("Asha Patel", "Website Redesign", "2026-09-09", 7.0, "Mobile responsive fixes"),
@@ -45,7 +46,7 @@ def init_db():
     conn.close()
 
 
-def _row_to_dict(row) -> dict:
+def _row_to_dict(row) -> dict: # converts a sqlite3.Row object to a dictionary with the appropriate keys for a time entry.
     return {
         "id": row["id"],
         "employee_name": row["employee_name"],
@@ -56,7 +57,7 @@ def _row_to_dict(row) -> dict:
     }
 
 
-def list_all_entries() -> list[dict]:
+def list_all_entries() -> list[dict]: # The result is a list of dictionaries. If there are no entries, it returns [].
     conn = get_connection()
     rows = conn.execute("SELECT * FROM time_entries ORDER BY entry_date DESC, id DESC").fetchall()
     conn.close()
@@ -64,7 +65,7 @@ def list_all_entries() -> list[dict]:
 
 
 def log_time(employee_name: str, project: str, entry_date: str, hours: float, description: str = "") -> dict:
-    if hours <= 0:
+    if hours <= 0: # Closes the connection and returns the saved entry, including its ID
         raise ValueError("hours must be a positive number")
     conn = get_connection()
     cursor = conn.execute(
@@ -80,7 +81,7 @@ def log_time(employee_name: str, project: str, entry_date: str, hours: float, de
 
 
 def get_timesheet(employee_name: str, start_date: str | None = None, end_date: str | None = None) -> list[dict]:
-    conn = get_connection()
+    conn = get_connection() # Returns entries for one employee, optionally restricted to a date range.
     query = "SELECT * FROM time_entries WHERE employee_name = ?"
     params: list = [employee_name]
     if start_date:
@@ -107,8 +108,9 @@ def list_projects() -> list[str]:
     return [r["project"] for r in rows]
 
 
-def get_project_summary(project: str) -> dict:
+def get_project_summary(project: str) -> dict: # Returns the total hours for a project and a breakdown by employee.
     conn = get_connection()
+    
     rows = conn.execute(
         "SELECT employee_name, SUM(hours) as total_hours FROM time_entries "
         "WHERE project = ? GROUP BY employee_name ORDER BY employee_name",

@@ -51,8 +51,13 @@ before writing this. Free for personal projects.
 1. Push this project to a GitHub repo
 2. Sign in to [Prefect Horizon](https://gofastmcp.com/v2/deployment/fastmcp-cloud) with GitHub
 3. Connect the repo — dependencies auto-detected from `pyproject.toml`
-4. Optionally verify first: `fastmcp inspect main.py:mcp`
-5. Deploy — live at `https://your-project-name.fastmcp.app/mcp`
+4. Set the `TIMETRACK_DB_PATH` environment variable to a writable path (e.g.
+   `/tmp/timetrack.db`) — the deployed source directory is read-only, so the
+   default `timetrack.db` next to `database.py` can't be created there. Note
+   this means data won't survive a redeploy/restart; swap in a real database
+   (Turso, Postgres, etc.) for durable storage.
+5. Optionally verify first: `fastmcp inspect main.py:mcp`
+6. Deploy — live at `https://your-project-name.fastmcp.app/mcp`
 
 Worth confirming directly whether the website's static routes come along with
 the deployment — Horizon is purpose-built for the MCP piece specifically. If
